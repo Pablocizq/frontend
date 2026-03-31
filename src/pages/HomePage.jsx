@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useEspaciosGeo } from "../hooks/useEspaciosGeo";
 import { useAuth } from "../hooks/useAuth";
-import { useRestriccionesReserva } from "../hooks/useRestriccionesReserva";
 import MapaEspacios from "../components/MapaEspacios";
 import { FiSearch, FiInfo, FiLogOut } from "react-icons/fi";  
 import { useNavigate } from "react-router-dom";
@@ -30,11 +29,10 @@ function colorPorCategoria(categoria) {
   return "#9ca3af"; // gris claro para otros/sin clasificar
 }
 
-export default function HomePage() {  const navigate = useNavigate();
+export default function HomePage() {
+  const navigate = useNavigate();
   const { data, loading, error } = useEspaciosGeo();
-  const { usuario, loading: authLoading, logout } = useAuth();
-  const { restricciones } = useRestriccionesReserva(usuario?.rol);
-  
+  const { usuario, restriccionesReserva, loading: authLoading, logout } = useAuth();
   const [plantaSeleccionada, setPlantaSeleccionada] = useState("");
   const [espacioSeleccionado, setEspacioSeleccionado] = useState(null);
   const [textoBusqueda, setTextoBusqueda] = useState(""); 
@@ -56,6 +54,7 @@ export default function HomePage() {  const navigate = useNavigate();
     }
   }, [usuario, authLoading, navigate]);  
   
+  /*
   // Función para verificar si el usuario puede reservar un espacio según su rol
   // Usa la misma lógica que ReservaPolicy del backend
   const puedeReservar = (espacio) => {
@@ -109,6 +108,8 @@ export default function HomePage() {  const navigate = useNavigate();
   const getRestriccionesTexto = () => {
     return restricciones?.mensaje || "Cargando permisos...";
   };
+  */
+
   const plantas = useMemo(() => {
     if (!data || !data.features) return [];
     const unicas = new Set(
@@ -125,6 +126,44 @@ export default function HomePage() {  const navigate = useNavigate();
     );
     return Array.from(unicas).sort((a, b) => Number(a) - Number(b));
   }, [data]);
+  
+
+  const puedeReservar = (espacio) => {
+    if (!usuario || !restriccionesReserva) return false;
+
+    if (restriccionesReserva.puedeReservarTodo) {
+      return true;
+    }
+
+    const categoria = (espacio.categoria || "").toLowerCase();
+
+    const categoriaPermitida = restriccionesReserva.categoriasPermitidas.some((cat) =>
+      categoria.includes(cat.toLowerCase())
+    );
+
+    if (!categoriaPermitida) {
+      return false;
+    }
+
+    const requiereDepartamento =
+      restriccionesReserva.categoriasConRestriccionDepartamento.some((cat) =>
+        categoria.includes(cat.toLowerCase())
+      );
+
+    if (!requiereDepartamento) {
+      return true;
+    }
+
+    if (!espacio.departamentoId) {
+      return false;
+    }
+
+    return String(usuario.departamentoId) === String(espacio.departamentoId);
+  };
+
+  const getRestriccionesTexto = () => {
+    return restriccionesReserva?.mensaje || "Cargando permisos...";
+  };
 
   const espaciosFiltrados = useMemo(() => {
     if (!data) return [];
