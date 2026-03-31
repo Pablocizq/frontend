@@ -49,7 +49,6 @@ export default function ReservaPage() {
   const [asistentes, setAsistentes] = useState("");
   const [tipoUso, setTipoUso] = useState("docencia");
   const [infoAdicional, setInfoAdicional] = useState("");
-  const usuarioId = 1; // TODO: sustituir por el usuario logueado cuando tengas auth
 
   // auxiliar: suma horas a horaInicio (HH:MM)
   const calcularHoraFin = (horaInicioStr, duracionHorasStr) => {
@@ -96,9 +95,10 @@ export default function ReservaPage() {
       return;
     }
 
+    const token = localStorage.getItem("token");
+
     const payload = {
       espacioId: espacio.gid,
-      usuarioId,
       fecha,
       horaInicio,
       duracion: Number(duracion) || 1,
@@ -110,7 +110,10 @@ export default function ReservaPage() {
     try {
       const resp = await fetch("http://localhost:3000/api/reservas", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
         body: JSON.stringify(payload),
       });
 
@@ -130,6 +133,7 @@ export default function ReservaPage() {
       alert("Error de red al crear la reserva");
     }
   };
+
   return (
     <div className="reserva-root">      <header className="reserva-topbar">
         <div className="reserva-topbar-left">
