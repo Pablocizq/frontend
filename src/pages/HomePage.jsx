@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useEspaciosGeo } from "../hooks/useEspaciosGeo";
 import { useAuth } from "../hooks/useAuth";
-import { useRestriccionesReserva } from "../hooks/useRestriccionesReserva";
 import MapaEspacios from "../components/MapaEspacios";
 import { FiSearch, FiInfo, FiLogOut } from "react-icons/fi";  
 import { useNavigate } from "react-router-dom";
@@ -30,11 +29,10 @@ function colorPorCategoria(categoria) {
   return "#9ca3af"; // gris claro para otros/sin clasificar
 }
 
-export default function HomePage() {  const navigate = useNavigate();
+export default function HomePage() {
+  const navigate = useNavigate();
   const { data, loading, error } = useEspaciosGeo();
-  const { usuario, loading: authLoading, logout } = useAuth();
-  const { restricciones } = useRestriccionesReserva(usuario?.rol);
-  
+  const { usuario, restriccionesReserva, loading: authLoading, logout } = useAuth();
   const [plantaSeleccionada, setPlantaSeleccionada] = useState("");
   const [espacioSeleccionado, setEspacioSeleccionado] = useState(null);
   const [textoBusqueda, setTextoBusqueda] = useState(""); 
@@ -54,35 +52,64 @@ export default function HomePage() {  const navigate = useNavigate();
     } else {
       console.log("HomePage: usuario presente:", usuario.nombre);
     }
-  }, [usuario, authLoading, navigate]);
+  }, [usuario, authLoading, navigate]);  
+  
+  /*
   // Función para verificar si el usuario puede reservar un espacio según su rol
-  // (solo para UI, la verdadera validación está en el backend)
+  // Usa la misma lógica que ReservaPolicy del backend
   const puedeReservar = (espacio) => {
-    if (!restricciones || !restricciones.puedereservar) return false;
+    if (!usuario) return false;
 
     const categoria = (espacio.categoria || "").toLowerCase();
     const rol = usuario?.rol?.toLowerCase();
 
-    // Validación básica de categoría
-    const tieneCategoria = restricciones.puedereservar.some(cat => categoria.includes(cat));
-    
-    if (!tieneCategoria) return false;
-
-    // Para laboratorios, validar departamento (si aplica)
-    if (categoria.includes("laboratorio")) {
-      // Si la restricción menciona "solo de tu dpto", verificar departamento
-      if (restricciones.mensaje.includes("solo de tu dpto")) {
-        return usuario?.departamentoId === espacio.departamentoId;
+    // Lógica de ReservaPolicy (duplicada del backend pero para UI)
+    if (rol === "estudiante") {
+      return categoria.includes("sala común");
+    }    if (rol === "investigador_contratado" || rol === "docente_investigador") {
+      if (categoria.includes("laboratorio") || categoria.includes("despacho")) {
+        // Solo su departamento (no de EINA)
+        if (!espacio.departamentoId) return false;
+        return String(usuario?.departamentoId) === String(espacio.departamentoId);
       }
+      return categoria.includes("aula") || categoria.includes("seminario") || categoria.includes("sala común");
     }
 
-    return true;
+    if (rol === "tecnico_laboratorio") {
+      if (categoria.includes("laboratorio")) {
+        // Solo su departamento (no de EINA)
+        if (!espacio.departamentoId) return false;
+        return String(usuario?.departamentoId) === String(espacio.departamentoId);
+      }
+      return false;
+    }
+
+    if (rol === "conserje") {
+      return categoria.includes("aula") || categoria.includes("seminario") || categoria.includes("sala común");
+    }
+
+    if (rol === "investigador_visitante") {
+      if (categoria.includes("laboratorio")) {
+        // Solo su departamento (no de EINA)
+        if (!espacio.departamentoId) return false;
+        return String(usuario?.departamentoId) === String(espacio.departamentoId);
+      }
+      return categoria.includes("aula") || categoria.includes("seminario") || categoria.includes("sala común");
+    }
+
+    if (rol === "gerente") {
+      return true;
+    }
+
+    return false;
   };
 
   // Obtener mensaje de restricción desde el backend
   const getRestriccionesTexto = () => {
     return restricciones?.mensaje || "Cargando permisos...";
   };
+  */
+
   const plantas = useMemo(() => {
     if (!data || !data.features) return [];
     const unicas = new Set(
@@ -99,6 +126,44 @@ export default function HomePage() {  const navigate = useNavigate();
     );
     return Array.from(unicas).sort((a, b) => Number(a) - Number(b));
   }, [data]);
+  
+
+  const puedeReservar = (espacio) => {
+    if (!usuario || !restriccionesReserva) return false;
+
+    if (restriccionesReserva.puedeReservarTodo) {
+      return true;
+    }
+
+    const categoria = (espacio.categoria || "").toLowerCase();
+
+    const categoriaPermitida = restriccionesReserva.categoriasPermitidas.some((cat) =>
+      categoria.includes(cat.toLowerCase())
+    );
+
+    if (!categoriaPermitida) {
+      return false;
+    }
+
+    const requiereDepartamento =
+      restriccionesReserva.categoriasConRestriccionDepartamento.some((cat) =>
+        categoria.includes(cat.toLowerCase())
+      );
+
+    if (!requiereDepartamento) {
+      return true;
+    }
+
+    if (!espacio.departamentoId) {
+      return false;
+    }
+
+    return String(usuario.departamentoId) === String(espacio.departamentoId);
+  };
+
+  const getRestriccionesTexto = () => {
+    return restriccionesReserva?.mensaje || "Cargando permisos...";
+  };
 
   const espaciosFiltrados = useMemo(() => {
     if (!data) return [];
@@ -179,6 +244,7 @@ export default function HomePage() {  const navigate = useNavigate();
 
     return resultado;
   }, [data, plantaSeleccionada, textoBusqueda, categoriaSeleccionada]);
+
   // Si aún está cargando la autenticación, no renderizar nada
   if (authLoading) {
     return null;
