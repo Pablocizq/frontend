@@ -3,13 +3,11 @@ import { useState, useEffect } from "react";
 export function useAuth() {
   const [usuario, setUsuario] = useState(null);
   const [token, setToken] = useState(null);
-  const [restriccionesReserva, setRestriccionesReserva] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const usuarioGuardado = localStorage.getItem("usuario");
-    const tokenGuardado = localStorage.getItem("token");
-    const restriccionesGuardadas = localStorage.getItem("restriccionesReserva");
+    const tokenGuardado   = localStorage.getItem("token");
 
     if (usuarioGuardado) {
       try {
@@ -23,23 +21,13 @@ export function useAuth() {
       setToken(tokenGuardado);
     }
 
-    if (restriccionesGuardadas) {
-      try {
-        setRestriccionesReserva(JSON.parse(restriccionesGuardadas));
-      } catch {
-        localStorage.removeItem("restriccionesReserva");
-      }
-    }
-
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
     const resp = await fetch("http://localhost:3000/api/auth/login", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
 
@@ -52,14 +40,9 @@ export function useAuth() {
 
     localStorage.setItem("usuario", JSON.stringify(data.usuario));
     localStorage.setItem("token", data.token);
-    localStorage.setItem(
-      "restriccionesReserva",
-      JSON.stringify(data.restriccionesReserva)
-    );
 
     setUsuario(data.usuario);
     setToken(data.token);
-    setRestriccionesReserva(data.restriccionesReserva);
 
     return data.usuario;
   };
@@ -67,19 +50,9 @@ export function useAuth() {
   const logout = () => {
     setUsuario(null);
     setToken(null);
-    setRestriccionesReserva(null);
-
     localStorage.removeItem("usuario");
     localStorage.removeItem("token");
-    localStorage.removeItem("restriccionesReserva");
   };
 
-  return {
-    usuario,
-    token,
-    restriccionesReserva,
-    loading,
-    login,
-    logout,
-  };
+  return { usuario, token, loading, login, logout };
 }

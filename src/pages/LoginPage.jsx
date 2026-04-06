@@ -8,25 +8,21 @@ import "./LoginPage.css";
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email,        setEmail]        = useState("");
+  const [password,     setPassword]     = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error,        setError]        = useState("");
+  const [loading,      setLoading]      = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      console.log("Intentando login con:", { email, password });
-      const usuarioData = await login(email, password);
-      console.log("Login exitoso, usuario:", usuarioData);
-      
-      // Redirigir inmediatamente
+      await login(email, password);
       navigate("/", { replace: true });
     } catch (err) {
-      console.error("Error en login:", err);
       setError(err.message || "Error en login");
       setLoading(false);
     }
@@ -36,20 +32,16 @@ export default function LoginPage() {
     <div className="login-root">
       <div className="login-container">
         <div className="login-card">
-          {/* Logo Universidad */}
           <div className="login-logo-box">
             <div className="login-university-logo">
               <img src={unizarLogo} alt="Universidad Zaragoza" />
             </div>
           </div>
 
-          {/* Título */}
           <h1 className="login-title">ByronSpace</h1>
           <p className="login-subtitle">Sistema de Reservas Universitarias del Ada Byron</p>
 
-          {/* Formulario */}
           <form onSubmit={handleSubmit} className="login-form">
-            {/* Email */}
             <div className="login-form-group">
               <label htmlFor="email">Correo electrónico</label>
               <div className="login-input-wrapper">
@@ -64,7 +56,8 @@ export default function LoginPage() {
                   disabled={loading}
                 />
               </div>
-            </div>            {/* Contraseña */}
+            </div>
+
             <div className="login-form-group">
               <label htmlFor="password">Contraseña</label>
               <div className="login-input-wrapper">
@@ -83,17 +76,14 @@ export default function LoginPage() {
                   className="login-toggle-password"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666' }}
                 >
                   {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
                 </button>
               </div>
             </div>
 
-            {/* Error */}
             {error && <div className="login-error">{error}</div>}
 
-            {/* Botón */}
             <button
               type="submit"
               className="login-btn"
@@ -103,16 +93,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Info */}
-          <div className="login-info" style={{ marginTop: '20px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
-            <p>Usa alguno de estos usuarios para probar:</p>
-            <p style={{ fontSize: '11px', marginTop: '8px' }}>
-              Email: estudiante1@unizar.es<br/>
-              Pass: password (igual para todos)
-            </p>
-          </div>
-
-          {/* Footer */}
           <div className="login-footer">
             <p>© 2026 Universidad · Soporte técnico disponible 24/7</p>
           </div>
