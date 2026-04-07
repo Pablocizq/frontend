@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../../hooks/useAuth";
 import { FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
-import unizarLogo from "../assets/images/unizar.png";
+import unizarLogo from "../../assets/images/unizar.png";
 import "./LoginPage.css";
 
 export default function LoginPage() {

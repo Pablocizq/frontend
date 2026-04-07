@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FiCalendar, FiClock, FiUsers, FiFileText, FiMessageSquare, FiMapPin, FiLogOut } from "react-icons/fi";
-import { useAuth } from "../hooks/useAuth";
-import { colorIconPorCategoria } from "../utils/coloresEspacio";
-import unizarLogo from "../assets/images/unizar.png";
+import { useAuth } from "../../hooks/useAuth";
+import { colorIconPorCategoria } from "../../utils/coloresEspacio";
+import { crearReserva } from "../../services/reservasService";
+import unizarLogo from "../../assets/images/unizar.png";
 import "./ReservaPage.css";
 
 export default function ReservaPage() {
@@ -18,6 +19,8 @@ export default function ReservaPage() {
   const [asistentes,    setAsistentes]    = useState("");
   const [tipoUso,       setTipoUso]       = useState("docencia");
   const [infoAdicional, setInfoAdicional] = useState("");
+  const [error,         setError]         = useState("");
+  const [loading,       setLoading]       = useState(false);
 
   const datosEspacio = espacio
     ? {
@@ -27,58 +30,35 @@ export default function ReservaPage() {
         planta:    espacio.planta    ?? "N/D",
         capacidad: espacio.aforo     ?? "N/D",
       }
-    : {
-        nombre: "Aula 1.01", uso: "Aula",
-        categoria: "Aula", planta: "P1", capacidad: 40,
-      };
+    : { nombre: "Aula 1.01", uso: "Aula", categoria: "Aula", planta: "P1", capacidad: 40 };
 
   const colorIcon = colorIconPorCategoria(datosEspacio.categoria);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
     if (!espacio) {
-      alert("No se ha seleccionado un espacio");
+      setError("No se ha seleccionado un espacio");
       return;
     }
 
-    if (!fecha || !horaInicio || !duracion) {
-      alert("Fecha, hora de inicio y duración son obligatorias");
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-
-    const payload = {
-      espacioId:   espacio.gid,
-      fecha,
-      horaInicio:  horaInicio.slice(0, 5),  // ← recorta a HH:MM
-      duracion:    Number(duracion),
-      numPersonas: asistentes ? Number(asistentes) : null,
-      tipoUso,
-      descripcion: infoAdicional,
-    };
-
+    setLoading(true);
     try {
-      const resp = await fetch("http://localhost:3000/api/reservas", {
-        method: "POST",
-        headers: {
-          "Content-Type":  "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+      await crearReserva({
+        espacioId:   espacio.gid,
+        fecha,
+        horaInicio:  horaInicio.slice(0, 5),
+        duracion:    Number(duracion),
+        numPersonas: asistentes ? Number(asistentes) : null,
+        tipoUso,
+        descripcion: infoAdicional,
       });
-
-      if (!resp.ok) {
-        const errBody = await resp.json().catch(() => ({}));
-        alert(errBody.message || "No se pudo crear la reserva");
-        return;
-      }
-
-      alert("Reserva creada correctamente");
       navigate("/");
     } catch (err) {
-      alert("Error de red al crear la reserva");
+      setError(err.message || "No se pudo crear la reserva");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -93,7 +73,9 @@ export default function ReservaPage() {
           </div>
         </div>
         <div className="reserva-topbar-right">
-          <button className="reserva-topbar-link">Mis reservas</button>
+          <button className="reserva-topbar-link" onClick={() => navigate("/mis-reservas")}>
+            Mis reservas
+          </button>
           <div className="reserva-user-info">
             <div className="reserva-user-details">
               <div className="reserva-user-name">{usuario?.nombre || "Usuario"}</div>
@@ -116,8 +98,7 @@ export default function ReservaPage() {
       <main className="reserva-main">
         <section className="reserva-card">
           <button
-            type="button"
-            onClick={() => navigate("/")}
+            type="button" onClick={() => navigate("/")}
             style={{ border: "none", background: "none", color: "#6b7280", fontSize: 13, marginBottom: 16, cursor: "pointer", fontWeight: 500 }}
           >
             ← Volver al mapa
@@ -153,19 +134,13 @@ export default function ReservaPage() {
                 <label className="reserva-form-label">
                   <FiCalendar style={{ display: "inline", marginRight: 6 }} />Fecha
                 </label>
-                <input
-                  type="date" className="reserva-form-input"
-                  value={fecha} onChange={(e) => setFecha(e.target.value)} required
-                />
+                <input type="date" className="reserva-form-input" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
               </div>
               <div className="reserva-form-group">
                 <label className="reserva-form-label">
                   <FiClock style={{ display: "inline", marginRight: 6 }} />Hora de inicio
                 </label>
-                <input
-                  type="time" className="reserva-form-input"
-                  value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} required
-                />
+                <input type="time" className="reserva-form-input" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} required />
               </div>
             </div>
 
@@ -175,11 +150,7 @@ export default function ReservaPage() {
                   <FiClock style={{ display: "inline", marginRight: 6 }} />Duración
                 </label>
                 <div className="reserva-field-select">
-                  <select
-                    className="reserva-form-select"
-                    value={duracion}
-                    onChange={(e) => setDuracion(e.target.value)}
-                  >
+                  <select className="reserva-form-select" value={duracion} onChange={(e) => setDuracion(e.target.value)}>
                     <option value="60">1 hora</option>
                     <option value="120">2 horas</option>
                     <option value="180">3 horas</option>
@@ -193,8 +164,8 @@ export default function ReservaPage() {
                 </label>
                 <input
                   type="number" min={1} max={datosEspacio.capacidad}
-                  className="reserva-form-input"
-                  value={asistentes} onChange={(e) => setAsistentes(e.target.value)}
+                  className="reserva-form-input" value={asistentes}
+                  onChange={(e) => setAsistentes(e.target.value)}
                   placeholder={`Máx. ${datosEspacio.capacidad}`}
                 />
               </div>
@@ -222,17 +193,23 @@ export default function ReservaPage() {
                 className="reserva-form-input reserva-textarea" rows={4}
                 value={infoAdicional}
                 onChange={(e) => setInfoAdicional(e.target.value.slice(0, 500))}
-                placeholder="Añade cualquier información relevante sobre tu reserva..."
+                placeholder="Añade cualquier información relevante..."
               />
               <div className="reserva-char-count">{infoAdicional.length}/500 caracteres</div>
             </div>
+
+            {error && (
+              <div style={{ background: "#fee2e2", color: "#dc2626", padding: "10px 12px", borderRadius: 8, fontSize: 13, marginBottom: 16 }}>
+                {error}
+              </div>
+            )}
 
             <div className="reserva-btn-group">
               <button type="button" className="reserva-btn-secondary" onClick={() => navigate("/")}>
                 Cancelar
               </button>
-              <button type="submit" className="reserva-btn-primary">
-                Confirmar reserva
+              <button type="submit" className="reserva-btn-primary" disabled={loading}>
+                {loading ? "Confirmando..." : "Confirmar reserva"}
               </button>
             </div>
           </form>
