@@ -1,12 +1,12 @@
 import { useMemo, useState, useEffect } from "react";
-import { useEspaciosGeo } from "../hooks/useEspaciosGeo";
-import { useAuth } from "../hooks/useAuth";
-import MapaEspacios from "../components/MapaEspacios";
+import { useEspaciosGeo } from "../../hooks/useEspaciosGeo";
+import { useAuth } from "../../hooks/useAuth";
+import MapaEspacios from "../../components/MapaEspacios";
 import { FiSearch, FiInfo, FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import unizarLogo from "../assets/images/unizar.png";
-import { colorPorCategoria } from "../utils/coloresEspacio";
-import { puedeReservarEspacio, categoriasLibres } from "../utils/restriccionesReserva";
+import unizarLogo from "../../assets/images/unizar.png";
+import { colorPorCategoria } from "../../utils/coloresEspacio";
+import { puedeReservarEspacio, categoriasLibres } from "../../utils/restriccionesReserva";
 import "./HomePage.css";
 
 export default function HomePage() {
@@ -114,7 +114,12 @@ export default function HomePage() {
           </div>
         </div>
         <div className="home-topbar-right">
-          <button className="home-topbar-link">Mis reservas</button>
+          <button
+            className="home-topbar-link"
+            onClick={() => navigate("/mis-reservas")}
+          >
+            Mis reservas
+          </button>
           <div className="home-user-info">
             <div className="home-user-details">
               <div className="home-user-name">{usuario?.nombre || "Usuario"}</div>
