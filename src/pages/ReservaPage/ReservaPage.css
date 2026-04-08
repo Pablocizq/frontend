@@ -373,3 +373,10 @@
   background: #f9fafb;
   border-color: var(--text-muted);
 }
+
+.reserva-asistentes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: center;
+}

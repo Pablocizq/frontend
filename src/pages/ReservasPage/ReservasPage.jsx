@@ -35,21 +35,33 @@ export default function ReservasPage() {
           obtenerMetadatosEspacios(),
         ]);
 
-        console.log("Primera reserva espacioId:", data[0]?.espacioId, typeof data[0]?.espacioId);
-        console.log("Primer metadato gid:", metadatos[0]?.gid, typeof metadatos[0]?.gid);
-        console.log("Metadato con ese gid:", metadatos.find(m => Number(m.gid) === Number(data[0]?.espacioId)));
-
+        // Índice de metadatos por gid para búsqueda rápida
         const metadatosPorGid = {};
         for (const m of metadatos) {
           metadatosPorGid[Number(m.gid)] = m;
         }
 
-        const reservasEnriquecidas = data.map((r) => ({
-          ...r,
-          espacioNombre:    metadatosPorGid[Number(r.espacioId)]?.nombre    ?? `Espacio #${r.espacioId}`,
-          espacioCategoria: metadatosPorGid[Number(r.espacioId)]?.categoria ?? null,
-          espacioPlanta:    metadatosPorGid[Number(r.espacioId)]?.planta    ?? null,
-        }));
+        // Enriquecer cada reserva con los nombres de sus espacios
+        const reservasEnriquecidas = data.map((r) => {
+          const espaciosEnriquecidos = (r.espacios || []).map((e) => {
+            const meta = metadatosPorGid[Number(e.espacioId)];
+            return {
+              ...e,
+              nombre:    meta?.nombre    ?? `Espacio #${e.espacioId}`,
+              categoria: meta?.categoria ?? null,
+              planta:    meta?.planta    ?? null,
+            };
+          });
+
+          // Categoría principal para el icono — la del primer espacio
+          const categoriaIcono = espaciosEnriquecidos[0]?.categoria ?? null;
+
+          return {
+            ...r,
+            espaciosEnriquecidos,
+            categoriaIcono,
+          };
+        });
 
         setReservas(reservasEnriquecidas);
       } catch (err) {
@@ -127,9 +139,9 @@ export default function ReservasPage() {
 
         <div className="reservas-contadores">
           {[
-            { label: "Activas",     count: contadores.aceptada,   color: "#16a34a" },
-            { label: "Finalizadas", count: contadores.finalizada,  color: "#6b7280" },
-            { label: "Canceladas",  count: contadores.cancelada,   color: "#dc2626" },
+            { label: "Activas",     count: contadores.aceptada,  color: "#16a34a" },
+            { label: "Finalizadas", count: contadores.finalizada, color: "#6b7280" },
+            { label: "Canceladas",  count: contadores.cancelada,  color: "#dc2626" },
           ].map(({ label, count, color }) => (
             <div key={label} className="reservas-contador-card">
               <p className="reservas-contador-num" style={{ color }}>{count}</p>
@@ -161,8 +173,16 @@ export default function ReservasPage() {
 
         <div className="reservas-list">
           {reservasFiltradas.map((reserva) => {
-            const estadoInfo = ESTADO_COLORES[reserva.estado] || { bg: "#f3f4f6", text: "#6b7280", label: reserva.estado };
-            const colorIcon = colorIconPorCategoria(reserva.espacioCategoria);
+            const estadoInfo  = ESTADO_COLORES[reserva.estado] || { bg: "#f3f4f6", text: "#6b7280", label: reserva.estado };
+            const colorIcon   = colorIconPorCategoria(reserva.categoriaIcono);
+            const espacios    = reserva.espaciosEnriquecidos || [];
+            const nombreLabel = espacios.length === 1
+              ? espacios[0].nombre
+              : `${espacios[0]?.nombre || "Espacio"} +${espacios.length - 1} más`;
+
+            // Total personas de todos los espacios
+            const totalPersonas = espacios.reduce((acc, e) => acc + (e.numPersonas || 0), 0);
+
             return (
               <div key={reserva.id} className="reservas-item-card">
                 <div className="reservas-item-left">
@@ -170,7 +190,22 @@ export default function ReservasPage() {
                     <FiMapPin size={18} />
                   </div>
                   <div className="reservas-item-info">
-                    <p className="reservas-item-nombre">{reserva.espacioNombre || `Espacio #${reserva.espacioId}`}</p>
+                    <p className="reservas-item-nombre">{nombreLabel}</p>
+
+                    {/* Si hay varios espacios, mostrarlos como píldoras */}
+                    {espacios.length > 1 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                        {espacios.map((e, idx) => (
+                          <span key={idx} style={{
+                            fontSize: 11, padding: "2px 8px", borderRadius: 999,
+                            background: "#eff6ff", color: "#1d4ed8", fontWeight: 500,
+                          }}>
+                            {e.nombre}{e.numPersonas ? ` (${e.numPersonas}p)` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="reservas-item-meta">
                       <span className="reservas-item-meta-item">
                         <FiCalendar size={12} /> {reserva.fecha}
@@ -178,9 +213,9 @@ export default function ReservasPage() {
                       <span className="reservas-item-meta-item">
                         <FiClock size={12} /> {reserva.horaInicio} — {reserva.horaFin}
                       </span>
-                      {reserva.numPersonas && (
+                      {totalPersonas > 0 && (
                         <span className="reservas-item-meta-item">
-                          <FiUsers size={12} /> {reserva.numPersonas} personas
+                          <FiUsers size={12} /> {totalPersonas} personas
                         </span>
                       )}
                       {reserva.tipoUso && (
