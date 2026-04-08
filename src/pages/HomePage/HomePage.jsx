@@ -13,11 +13,12 @@ export default function HomePage() {
   const navigate = useNavigate();
   const { data, loading, error } = useEspaciosGeo();
   const { usuario, loading: authLoading, logout } = useAuth();
-  const [plantaSeleccionada, setPlantaSeleccionada]     = useState("");
-  const [espacioSeleccionado, setEspacioSeleccionado]   = useState(null);
-  const [textoBusqueda, setTextoBusqueda]               = useState("");
+  const [plantaSeleccionada,    setPlantaSeleccionada]    = useState("");
+  const [espacioSeleccionado,   setEspacioSeleccionado]   = useState(null);
+  const [espaciosSeleccionados, setEspaciosSeleccionados] = useState([]);
+  const [textoBusqueda,         setTextoBusqueda]         = useState("");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("todas");
-  const [mostrarTooltip, setMostrarTooltip]             = useState(false);
+  const [mostrarTooltip,        setMostrarTooltip]        = useState(false);
 
   useEffect(() => {
     if (!authLoading && !usuario) {
@@ -51,6 +52,25 @@ export default function HomePage() {
     const libres = categoriasLibres(usuario.rol);
     if (libres.length === 0) return "Sin acceso a reservas";
     return `Puedes reservar: ${libres.join(", ")}`;
+  };
+
+  const estaSeleccionado = (e) => {
+    const id = e.gid || e.id_espacio;
+    return espaciosSeleccionados.some((s) => (s.gid || s.id_espacio) === id);
+  };
+
+  const toggleSeleccion = (e, f) => {
+    const id = e.gid || e.id_espacio;
+    if (estaSeleccionado(e)) {
+      setEspaciosSeleccionados((prev) => prev.filter((s) => (s.gid || s.id_espacio) !== id));
+    } else {
+      setEspaciosSeleccionados((prev) => [...prev, { gid: f.id || e.gid, ...e }]);
+    }
+  };
+
+  const handleReservar = () => {
+    if (espaciosSeleccionados.length === 0) return;
+    navigate("/reserva", { state: { espacios: espaciosSeleccionados } });
   };
 
   const espaciosFiltrados = useMemo(() => {
@@ -114,10 +134,7 @@ export default function HomePage() {
           </div>
         </div>
         <div className="home-topbar-right">
-          <button
-            className="home-topbar-link"
-            onClick={() => navigate("/mis-reservas")}
-          >
+          <button className="home-topbar-link" onClick={() => navigate("/mis-reservas")}>
             Mis reservas
           </button>
           <div className="home-user-info">
@@ -244,16 +261,33 @@ export default function HomePage() {
           <section className="card card-resultados" key={`resultados-${categoriaSeleccionada}-${plantaSeleccionada}-${textoBusqueda}`}>
             <div className="resultados-header">
               <h2 className="card-title">Resultados ({espaciosFiltrados.length})</h2>
+              <button
+                className={
+                  "resultado-reservar-btn resultado-reservar-btn--header" +
+                  (espaciosSeleccionados.length > 0 ? " resultado-reservar-btn--header-activo" : " resultado-reservar-btn--disabled")
+                }
+                disabled={espaciosSeleccionados.length === 0}
+                onClick={handleReservar}
+              >
+                {espaciosSeleccionados.length > 0 ? `Reservar (${espaciosSeleccionados.length})` : "Reservar"}
+              </button>
             </div>
+
             <div className="resultados-list">
               {espaciosFiltrados.map((f) => {
                 const e          = f.properties || {};
                 const disponible = e.reservable !== false;
                 const isSelected = espacioSeleccionado?.id_espacio === e.id_espacio || espacioSeleccionado?.gid === e.gid;
+                const seleccionado = estaSeleccionado(e);
+
                 return (
                   <div
                     key={`${categoriaSeleccionada}-${plantaSeleccionada}-${e.id_espacio || e.gid}`}
-                    className={`resultado-item ${isSelected ? "resultado-item--selected" : ""}`}
+                    className={[
+                      "resultado-item",
+                      isSelected   ? "resultado-item--selected"  : "",
+                      seleccionado ? "resultado-item--checked"   : "",
+                    ].join(" ")}
                     ref={isSelected ? (el) => el?.scrollIntoView({ behavior: "smooth", block: "nearest" }) : null}
                   >
                     <div
@@ -288,16 +322,16 @@ export default function HomePage() {
                     </div>
 
                     <button
-                      className={"resultado-reservar-btn" + (disponible && puedeReservar(e) ? "" : " resultado-reservar-btn--disabled")}
+                      className={[
+                        "resultado-reservar-btn",
+                        seleccionado ? "resultado-reservar-btn--seleccionado" : "",
+                        !disponible || !puedeReservar(e) ? "resultado-reservar-btn--disabled" : "",
+                      ].join(" ")}
                       disabled={!disponible || !puedeReservar(e)}
                       title={!puedeReservar(e) ? puedeReservarEspacio(e, usuario).motivo : ""}
-                      onClick={() => {
-                        if (disponible && puedeReservar(e)) {
-                          navigate("/reserva", { state: { espacio: { gid: f.id || e.gid, ...e } } });
-                        }
-                      }}
+                      onClick={() => toggleSeleccion(e, f)}
                     >
-                      Reservar
+                      {seleccionado ? "Deseleccionar" : "Seleccionar"}
                     </button>
                   </div>
                 );

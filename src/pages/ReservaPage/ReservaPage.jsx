@@ -10,47 +10,53 @@ import "./ReservaPage.css";
 export default function ReservaPage() {
   const navigate  = useNavigate();
   const location  = useLocation();
-  const espacio   = location.state?.espacio || null;
   const { usuario, logout } = useAuth();
+
+  // Recibe array de espacios desde HomePage
+  const espacios = location.state?.espacios || [];
 
   const [fecha,         setFecha]         = useState("");
   const [horaInicio,    setHoraInicio]    = useState("");
   const [duracion,      setDuracion]      = useState("60");
-  const [asistentes,    setAsistentes]    = useState("");
   const [tipoUso,       setTipoUso]       = useState("docencia");
   const [infoAdicional, setInfoAdicional] = useState("");
   const [error,         setError]         = useState("");
   const [loading,       setLoading]       = useState(false);
 
-  const datosEspacio = espacio
-    ? {
-        nombre:    espacio.nombre || espacio.id_espacio || "Espacio",
-        uso:       espacio.uso       || "N/D",
-        categoria: espacio.categoria || "N/D",
-        planta:    espacio.planta    ?? "N/D",
-        capacidad: espacio.aforo     ?? "N/D",
-      }
-    : { nombre: "Aula 1.01", uso: "Aula", categoria: "Aula", planta: "P1", capacidad: 40 };
+  // numPersonas por espacio: { [gid]: number }
+  const [numPersonasPorEspacio, setNumPersonasPorEspacio] = useState({});
+  // Espacio actualmente seleccionado en el desplegable de asistentes
+  const [espacioActivoIdx, setEspacioActivoIdx] = useState(0);
 
-  const colorIcon = colorIconPorCategoria(datosEspacio.categoria);
+  const espacioActivo = espacios[espacioActivoIdx] || null;
+  const gidActivo     = espacioActivo?.gid || espacioActivo?.id_espacio;
+
+  const handleNumPersonasChange = (valor) => {
+    if (!gidActivo) return;
+    setNumPersonasPorEspacio((prev) => ({ ...prev, [gidActivo]: valor }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!espacio) {
-      setError("No se ha seleccionado un espacio");
+    if (espacios.length === 0) {
+      setError("No se ha seleccionado ningún espacio");
       return;
     }
 
     setLoading(true);
     try {
       await crearReserva({
-        espacioId:   espacio.gid,
+        espacios: espacios.map((esp) => ({
+          espacioId:   esp.gid || esp.id_espacio,
+          numPersonas: numPersonasPorEspacio[esp.gid || esp.id_espacio]
+            ? Number(numPersonasPorEspacio[esp.gid || esp.id_espacio])
+            : null,
+        })),
         fecha,
         horaInicio:  horaInicio.slice(0, 5),
         duracion:    Number(duracion),
-        numPersonas: asistentes ? Number(asistentes) : null,
         tipoUso,
         descripcion: infoAdicional,
       });
@@ -96,6 +102,7 @@ export default function ReservaPage() {
       </header>
 
       <main className="reserva-main">
+        {/* Cabecera */}
         <section className="reserva-card">
           <button
             type="button" onClick={() => navigate("/")}
@@ -107,70 +114,140 @@ export default function ReservaPage() {
           <p className="reserva-subtitle">Completa los detalles para confirmar tu reserva</p>
         </section>
 
+        {/* Lista de espacios seleccionados */}
         <section className="reserva-card">
-          <div className="reserva-space-card">
-            <div className="reserva-space-icon" style={{ backgroundColor: colorIcon.bg, color: colorIcon.text }}>
-              <FiMapPin size={24} />
-            </div>
-            <div className="reserva-space-info">
-              <h3>{datosEspacio.nombre}</h3>
-              <p>{datosEspacio.uso} · Planta {datosEspacio.planta}</p>
-            </div>
-            <div className="reserva-space-capacity">
-              <div className="reserva-space-capacity-icon" style={{ color: colorIcon.text }}>
-                <FiUsers size={20} />
-              </div>
-              <div className="reserva-space-capacity-text">{datosEspacio.capacidad} personas</div>
-            </div>
+          <h2 className="reserva-card-title">
+            {espacios.length === 1 ? "Espacio seleccionado" : `Espacios seleccionados (${espacios.length})`}
+          </h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {espacios.map((esp, idx) => {
+              const colorIcon = colorIconPorCategoria(esp.categoria || "N/D");
+              const nombre    = esp.nombre || esp.id_espacio || "Espacio";
+              const planta    = esp.planta ?? "N/D";
+              const aforo     = esp.aforo  ?? "N/D";
+              return (
+                <div key={esp.gid || esp.id_espacio || idx} className="reserva-space-card">
+                  <div className="reserva-space-icon" style={{ backgroundColor: colorIcon.bg, color: colorIcon.text }}>
+                    <FiMapPin size={22} />
+                  </div>
+                  <div className="reserva-space-info">
+                    <h3>{nombre}</h3>
+                    <p>{esp.uso || "N/D"} · Planta {planta}</p>
+                  </div>
+                  <div className="reserva-space-capacity">
+                    <div className="reserva-space-capacity-icon" style={{ color: colorIcon.text }}>
+                      <FiUsers size={18} />
+                    </div>
+                    <div className="reserva-space-capacity-text">{aforo} personas</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
+        {/* Formulario */}
         <section className="reserva-card">
           <h2 className="reserva-card-title">Detalles de la Reserva</h2>
 
           <form onSubmit={handleSubmit}>
+            {/* Fecha y hora */}
             <div className="reserva-form-grid">
               <div className="reserva-form-group">
                 <label className="reserva-form-label">
                   <FiCalendar style={{ display: "inline", marginRight: 6 }} />Fecha
                 </label>
-                <input type="date" className="reserva-form-input" value={fecha} onChange={(e) => setFecha(e.target.value)} required />
+                <input
+                  type="date" className="reserva-form-input"
+                  value={fecha} onChange={(e) => setFecha(e.target.value)} required
+                />
               </div>
               <div className="reserva-form-group">
                 <label className="reserva-form-label">
                   <FiClock style={{ display: "inline", marginRight: 6 }} />Hora de inicio
                 </label>
-                <input type="time" className="reserva-form-input" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} required />
-              </div>
-            </div>
-
-            <div className="reserva-form-grid">
-              <div className="reserva-form-group">
-                <label className="reserva-form-label">
-                  <FiClock style={{ display: "inline", marginRight: 6 }} />Duración
-                </label>
-                <div className="reserva-field-select">
-                  <select className="reserva-form-select" value={duracion} onChange={(e) => setDuracion(e.target.value)}>
-                    <option value="60">1 hora</option>
-                    <option value="120">2 horas</option>
-                    <option value="180">3 horas</option>
-                    <option value="240">4 horas</option>
-                  </select>
-                </div>
-              </div>
-              <div className="reserva-form-group">
-                <label className="reserva-form-label">
-                  <FiUsers style={{ display: "inline", marginRight: 6 }} />Asistentes
-                </label>
                 <input
-                  type="number" min={1} max={datosEspacio.capacidad}
-                  className="reserva-form-input" value={asistentes}
-                  onChange={(e) => setAsistentes(e.target.value)}
-                  placeholder={`Máx. ${datosEspacio.capacidad}`}
+                  type="time" className="reserva-form-input"
+                  value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} required
                 />
               </div>
             </div>
 
+            {/* Duración */}
+            <div style={{ marginBottom: 16 }}>
+              <label className="reserva-form-label">
+                <FiClock style={{ display: "inline", marginRight: 6 }} />Duración
+              </label>
+              <div className="reserva-field-select">
+                <select className="reserva-form-select" value={duracion} onChange={(e) => setDuracion(e.target.value)}>
+                  <option value="60">1 hora</option>
+                  <option value="120">2 horas</option>
+                  <option value="180">3 horas</option>
+                  <option value="240">4 horas</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Asistentes por espacio */}
+            <div style={{ marginBottom: 16 }}>
+              <label className="reserva-form-label">
+                <FiUsers style={{ display: "inline", marginRight: 6 }} />Número de asistentes por espacio
+              </label>
+              <div className="reserva-asistentes-grid">
+                {/* Selector de espacio */}
+                <div className="reserva-field-select">
+                  <select
+                    className="reserva-form-select"
+                    value={espacioActivoIdx}
+                    onChange={(e) => setEspacioActivoIdx(Number(e.target.value))}
+                  >
+                    {espacios.map((esp, idx) => (
+                      <option key={esp.gid || esp.id_espacio || idx} value={idx}>
+                        {esp.nombre || esp.id_espacio || `Espacio ${idx + 1}`}
+                        {numPersonasPorEspacio[esp.gid || esp.id_espacio]
+                          ? ` — ${numPersonasPorEspacio[esp.gid || esp.id_espacio]} pers.`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Input num personas del espacio seleccionado */}
+                <input
+                  type="number"
+                  min={1}
+                  max={espacioActivo?.aforo ?? undefined}
+                  className="reserva-form-input"
+                  value={numPersonasPorEspacio[gidActivo] || ""}
+                  onChange={(e) => handleNumPersonasChange(e.target.value)}
+                  placeholder={espacioActivo?.aforo ? `Máx. ${espacioActivo.aforo}` : "Nº personas"}
+                />
+              </div>
+              {/* Resumen por espacio */}
+              {espacios.length > 1 && (
+                <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {espacios.map((esp, idx) => {
+                    const id  = esp.gid || esp.id_espacio;
+                    const num = numPersonasPorEspacio[id];
+                    return (
+                      <span
+                        key={id || idx}
+                        style={{
+                          fontSize: 11, padding: "3px 10px", borderRadius: 999,
+                          background: num ? "#dbeafe" : "#f3f4f6",
+                          color:      num ? "#1d4ed8" : "#9ca3af",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {esp.nombre || `Espacio ${idx + 1}`}: {num ? `${num} pers.` : "—"}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Tipo de uso */}
             <div style={{ marginBottom: 16 }}>
               <label className="reserva-form-label">
                 <FiFileText style={{ display: "inline", marginRight: 6 }} />Tipo de uso
@@ -185,6 +262,7 @@ export default function ReservaPage() {
               </div>
             </div>
 
+            {/* Información adicional */}
             <div style={{ marginBottom: 16 }}>
               <label className="reserva-form-label">
                 <FiMessageSquare style={{ display: "inline", marginRight: 6 }} />Información adicional
